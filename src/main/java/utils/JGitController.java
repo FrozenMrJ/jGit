@@ -210,6 +210,7 @@ public class JGitController {
                 int type = commit.getType();
                 String commitId = commit.getName();  //这个应该就是提交的版本
                 ObjectId treeId = commit.getTree().getId();     // 对比差异所用的ID
+
                 log.info("提交人：" + name + "\t提交时间：" + sdf.format(commitDate));
 //                System.out.println("authorEmail:"+email);
 //                System.out.println("authorName:"+name);
@@ -233,7 +234,7 @@ public class JGitController {
     }
 
     /**
-     * 对比两个版本的差异
+     * 对比两个版本的差异，输出两个版本之间全部的操作
      * @param treeId1 新版本号
      * @param treeId2 老版本号
      */
@@ -271,9 +272,10 @@ public class JGitController {
                     log.info("减少行数：" + subSize);
                     log.info("增加行数：" + addSize);
                 }
-                log.info("------------------------------end-----------------------------");
                 out.reset();
+                log.info("==============版本分割================");
             }
+            log.info("------------------------------end-----------------------------");
         } catch (Exception e) {
             log.error("对比版本差异difVersionInfo()出错：" + e.getMessage());
             e.printStackTrace();
