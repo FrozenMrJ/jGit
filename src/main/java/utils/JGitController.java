@@ -4,7 +4,6 @@ import org.eclipse.jgit.api.*;
 import org.eclipse.jgit.api.errors.GitAPIException;
 import org.eclipse.jgit.diff.*;
 import org.eclipse.jgit.internal.storage.file.FileRepository;
-import org.eclipse.jgit.lib.AnyObjectId;
 import org.eclipse.jgit.lib.ObjectId;
 import org.eclipse.jgit.lib.ObjectReader;
 import org.eclipse.jgit.lib.Repository;
@@ -111,13 +110,12 @@ public class JGitController {
         try {
             git = Git.open(new File(localPath + "/.git"));
             AddCommand addCommand = git.add();
-            //add操作 add -A操作在jgit不知道怎么用 没有尝试出来 有兴趣的可以看下jgitAPI研究一下 欢迎留言
             addCommand.addFilepattern(".").call();
             log.info("git add success");
 
             RmCommand rm = git.rm();
             Status status = git.status().call();
-            //循环add missing 的文件 没研究出missing和remove的区别 就是删除的文件也要提交到git
+            //循环add missing 的文件,删除的文件也要提交到git
             Set<String> missing = status.getMissing();
             for(String m : missing){
                 log.info("missing files: " + m);
@@ -132,7 +130,7 @@ public class JGitController {
                 log.info("removed files: " + r);
                 rm.addFilepattern(r).call();
                 rm = git.rm();
-                status = git.status().call();
+//                status = git.status().call();
             }
             String username = System.getenv().get("USERNAME");
             //提交
@@ -151,6 +149,7 @@ public class JGitController {
 
     /**
      * 获取一个文件所有的版本(也就是提交记录)
+     * 如果某一次的提交，包含了多个文件，其中包含了这个文件，该次提交也会被包含到结果其中
      * @param fileName 带后缀的完整文件名
      * @return  key             value
      *         commitName       提交人      String
@@ -192,7 +191,6 @@ public class JGitController {
 
     /**
      * 获取差异信息
-     * @param commits
      * @return List里的一个元素就是一个版本，Map为版本的各种参数
      */
     private List<Map<String,Object>> getDifInfo(Iterable<RevCommit> commits) {
@@ -207,10 +205,10 @@ public class JGitController {
                 String commitName = commit.getCommitterIdent().getName();
                 String fullMessage = commit.getFullMessage();
                 String shortMessage = commit.getShortMessage();  //返回message的firstLine
-                int type = commit.getType();
                 String commitId = commit.getName();  //这个应该就是提交的版本
                 ObjectId treeId = commit.getTree().getId();     // 对比差异所用的ID
 
+                // TODO 增加修改的文件名
                 log.info("提交人：" + name + "\t提交时间：" + sdf.format(commitDate));
 //                System.out.println("authorEmail:"+email);
 //                System.out.println("authorName:"+name);
@@ -255,6 +253,10 @@ public class JGitController {
                 //打印文件差异具体内容
                 df.format(diffEntry);
                 String diffText = out.toString("UTF-8");
+                String oldPath = diffEntry.getOldPath();
+                String newPath = diffEntry.getNewPath();
+                log.info("oldPath：" + oldPath);
+                log.info("newPath：" + newPath);
                 log.info("版本差异信息：\n" + diffText);
                 log.info("操作：" + diffEntry.getChangeType());
                 //获取文件差异位置，从而统计差异的行数，如增加行数，减少行数
@@ -317,8 +319,6 @@ public class JGitController {
 
     /**
      * 重置
-     *
-     * @return
      */
     public String reset() {
         String result;
