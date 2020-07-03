@@ -1,6 +1,9 @@
 package service;
 
+import entity.TreeItemVO;
 import org.eclipse.jgit.lib.ObjectId;
+import org.springframework.web.multipart.MultipartFile;
+import sun.reflect.generics.tree.Tree;
 
 import java.io.ByteArrayOutputStream;
 import java.util.List;
@@ -18,11 +21,6 @@ public interface JGitService {
      * git clone，建立与远程仓库的联系，仅需要执行一次
      */
     void gitClone();
-
-    /**
-     * 初始化git 和 repository
-     */
-    void init();
 
     /**
      * pull拉取远程仓库文件
@@ -43,7 +41,6 @@ public interface JGitService {
      *         commitId         版本号                String
      *         treeId    用于对比的ID(无实际意义)     ObjectId
      *         commitMsg        提交备注              String
-     *         path             修改的相对路径        String
      */
     List<Map<String, Object>> getFileVersion(String fileName,int maxCount);
 
@@ -57,7 +54,6 @@ public interface JGitService {
      *         commitId         版本号                String
      *         treeId    用于对比的ID(无实际意义)     ObjectId
      *         commitMsg        提交备注              String
-     *         path             修改的相对路径        String
      */
     List<Map<String, Object>> getAllVersion(int maxCount);
 
@@ -101,4 +97,16 @@ public interface JGitService {
      */
     void createFolder(String filePath);
 
+    /**
+     * 文件上传
+     * @param file
+     * @param relativePath  文件上传相对路径
+     */
+    void upload(MultipartFile file, String relativePath);
+
+    /**
+     * 初始渲染目录结构
+     * @return 目录下每个文件的状态
+     */
+    List<TreeItemVO> initDirTreeStatus();
 }

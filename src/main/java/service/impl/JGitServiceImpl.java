@@ -1,5 +1,6 @@
 package service.impl;
 
+import entity.TreeItemVO;
 import org.eclipse.jgit.api.*;
 import org.eclipse.jgit.api.errors.GitAPIException;
 import org.eclipse.jgit.api.errors.JGitInternalException;
@@ -22,6 +23,7 @@ import org.eclipse.jgit.treewalk.filter.PathFilterGroup;
 import org.eclipse.jgit.util.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.web.multipart.MultipartFile;
 import service.JGitService;
 import utils.PropertiesUtils;
 
@@ -58,9 +60,6 @@ public class JGitServiceImpl implements JGitService {
     private Repository repository = null;
     private SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 
-    /**
-     * 克隆，建立与远程仓库的联系，仅需要执行一次
-     */
     @Override
     public void gitClone() {
         try {
@@ -77,11 +76,7 @@ public class JGitServiceImpl implements JGitService {
         }
     }
 
-    /**
-     * 初始化git 和 repository
-     */
-    @Override
-    public void init() {
+    private void init() {
         try {
             git = Git.open(new File(localPath));
             repository = git.getRepository();
@@ -90,12 +85,9 @@ public class JGitServiceImpl implements JGitService {
         }
     }
 
-    /**
-     * pull拉取远程仓库文件
-     * @return true / false
-     */
     @Override
     public boolean pullBranchToLocal(){
+        init();
         boolean resultFlag = false;
         try {
 //            git = new Git(new FileRepository(localPath + "/.git"));
@@ -110,15 +102,9 @@ public class JGitServiceImpl implements JGitService {
         return resultFlag;
     }
 
-    /**
-     * 将文件列表提交到git仓库中
-     * @param relativePath 相对git库的文件路径
-     * @param msg 用户提交信息
-     * @return 返回本次提交的版本号
-     * @throws IOException
-     */
     @Override
     public String commitToGitRepository(String relativePath,String msg){
+        init();
         try {
             List<String> paths = new ArrayList<>();
             paths.add(relativePath);
@@ -166,7 +152,7 @@ public class JGitServiceImpl implements JGitService {
                 commitCmd.setOnly(file);
             }
 
-            RevCommit revCommit = commitCmd.setMessage(paths + "_" + changeType.toString() + "_" + msg).call();
+            RevCommit revCommit = commitCmd.setMessage(msg).call();
             log.info("git commit success");
             //推送
             git.push().setCredentialsProvider(usernamePasswordCredentialsProvider).call();
@@ -181,22 +167,9 @@ public class JGitServiceImpl implements JGitService {
         return null;
     }
 
-    /**
-     * 获取一个文件所有的版本(也就是提交记录)
-     * 如果某一次的提交，包含了多个文件，其中包含了这个文件，该次提交也会被包含到结果其中
-     * @param fileName 带后缀的完整文件名
-     * @param maxCount 返回的版本个数
-     * @return  key             value                 类型
-     *         commitName       提交人                String
-     *         commitDate       提交日期              Date
-     *         commitId         版本号                String
-     *         commitMsg        提交备注              String
-     *         treeId    用于对比的ID(无实际意义)     ObjectId
-     *         commitMsg        提交备注              String
-     *         path             修改的相对路径        String
-     */
     @Override
     public List<Map<String, Object>> getFileVersion(String fileName,int maxCount){
+        init();
         try {
             Iterable<RevCommit> commits = git.log().addPath(fileName).call();
             return getDifInfo(commits);
@@ -207,19 +180,9 @@ public class JGitServiceImpl implements JGitService {
         return null;
     }
 
-    /**
-     * 获取git版本的最近全部maxCount条差异信息
-     * @param maxCount 返回的版本个数
-     * @return  key             value                 类型
-     *         commitName       提交人                String
-     *         commitDate       提交日期              Date
-     *         commitId         版本号                String
-     *         treeId    用于对比的ID(无实际意义)     ObjectId
-     *         commitMsg        提交备注              String
-     *         path             修改的相对路径        String
-     */
     @Override
     public List<Map<String, Object>> getAllVersion(int maxCount) {
+        init();
         try {
             repository = git.getRepository();
             //获取最近提交的MAX_COUNT次记录
@@ -232,13 +195,9 @@ public class JGitServiceImpl implements JGitService {
         return null;
     }
 
-    /**
-     * 对比两个版本的差异，输出两个版本之间全部的操作
-     * @param treeId1 新版本号
-     * @param treeId2 老版本号
-     */
     @Override
     public void difVersionInfo(ObjectId treeId1,ObjectId treeId2){
+        init();
         try {
             AbstractTreeIterator newTree = prepareTreeParser(treeId1);
             AbstractTreeIterator oldTree = prepareTreeParser(treeId2);
@@ -286,16 +245,9 @@ public class JGitServiceImpl implements JGitService {
         }
     }
 
-    /**
-     * 状态
-     * untracked 表示是新文件，没有被add过，是为跟踪的意思
-     * modified 修改的文件
-     * @param relativePath 相对git库的文件路径
-     * @return NONE：未修改   ADD：新增
-     *          DELETE：删除   MODIFY：修改
-     */
     @Override
     public String status(String relativePath) {
+        init();
         String status = null;
         try {
             ArrayList<String> files = new ArrayList<>();
@@ -329,14 +281,9 @@ public class JGitServiceImpl implements JGitService {
         return status;
     }
 
-    /**
-     *
-     * @param commitIds  通过getFileVersion()方法返回值中key为commitId的值
-     * @param relativePaths 相对git库的文件路径
-     * @return 单个文件直接返回文件的byte[]；多个文件为zip格式的bytes
-     */
     @Override
     public byte[] readHisFile(String []commitIds,String []relativePaths) {
+        init();
         // TODO zip压缩
         if (commitIds.length != relativePaths.length) {
             log.error("readHisFile()参数输入错误");
@@ -400,25 +347,47 @@ public class JGitServiceImpl implements JGitService {
         return rtnBytes;
     }
 
-    /**
-     * 创建文件夹
-     * @param filePath  相对于gitlab.localPath的相对路径，支持多记目录创建
-     */
+    public void upload(MultipartFile file, String relativePath) {
+        try {
+            if (file.isEmpty()) {
+                throw new Exception("upload上传文件为空");
+            }
+            // 获取文件名
+            String fileName = file.getOriginalFilename();
+            System.out.println("上传的文件名为：" + fileName);
+            // 获取文件的后缀名
+            String suffixName = fileName.substring(fileName.lastIndexOf("."));
+            System.out.println("上传的后缀名为：" + suffixName);
+            // 文件上传后的路径
+            File dest = new File(localPath + "/" + relativePath + "/" + fileName);
+            // 检测是否存在目录
+            if (!dest.getParentFile().exists()) {
+                dest.getParentFile().mkdirs();
+            }
+            file.transferTo(dest);
+            log.info("上传成功");
+        } catch (Exception e) {
+            log.error(e.getMessage());
+        }
+    }
+
+    @Override
+    public List<TreeItemVO> initDirTreeStatus() {
+        return getListFiles(localPath);
+
+    }
+
     @Override
     public void createFolder(String filePath) {
         File dir = new File(localPath + "/" + filePath);
         if(!dir.exists()){
             dir.mkdirs();
-            System.out.println("目录创建完毕。");
+            log.info("目录创建完毕。");
         }else{
-            System.out.println("目录已存在！");
+            log.info("目录已存在！");
         }
     }
 
-    /**
-     * 获取差异信息
-     * @return List里的一个元素就是一个版本，Map为版本的各种参数
-     */
     private List<Map<String,Object>> getDifInfo(Iterable<RevCommit> commits) {
         List<Map<String,Object>> infoList = new ArrayList<>();
         try {
@@ -433,7 +402,6 @@ public class JGitServiceImpl implements JGitService {
                 String shortMessage = commit.getShortMessage();  //返回message的firstLine
                 String commitId = commit.getName();  //这个应该就是提交的版本
                 ObjectId treeId = commit.getTree().getId();     // 对比差异所用的ID
-                String path = fullMessage.substring(0, fullMessage.indexOf("_"));
 
                 log.info("提交人：" + name + "\t提交时间：" + sdf.format(commitDate));
 //                System.out.println("authorEmail:"+email);
@@ -449,7 +417,6 @@ public class JGitServiceImpl implements JGitService {
                 map.put("commitId", commitId);
                 map.put("treeId", treeId);
                 map.put("commitMsg", fullMessage);
-                map.put("path", path);
                 infoList.add(map);
             }
         } catch (Exception e) {
@@ -473,6 +440,39 @@ public class JGitServiceImpl implements JGitService {
             e.printStackTrace();
         }
         return null;
+    }
+
+    List<TreeItemVO> list = new ArrayList<>();
+    private List<TreeItemVO> getListFiles(Object obj) {
+        File directory;
+        if (obj instanceof File) {
+            directory = (File) obj;
+        } else {
+            directory = new File(obj.toString());
+        }
+        List<TreeItemVO> files = new ArrayList<>();
+        if (!directory.getName().equals(".git")) {  // 过滤.git目录
+            TreeItemVO treeItemVO = new TreeItemVO();
+            String absolutePath = directory.getAbsolutePath();
+            String relativePath = absolutePath.replace(localPath + "\\", "");
+            treeItemVO.setFileName(directory.getName());
+//            treeItemVO.setFilePath(relativePath);
+            if (directory.isFile()) {
+                treeItemVO.setType("file");
+                treeItemVO.setStatus(status(relativePath));
+                files.add(treeItemVO);
+//                return files;
+            } else if (directory.isDirectory()) {
+                treeItemVO.setType("dir");
+                File[] fileArr = directory.listFiles();
+                for (File fileOne : fileArr) {
+                    treeItemVO.setChildren(getListFiles(fileOne));
+//                    files.addAll(getListFiles(fileOne));
+                    files.add(treeItemVO);
+                }
+            }
+        }
+        return files;
     }
 
 }
