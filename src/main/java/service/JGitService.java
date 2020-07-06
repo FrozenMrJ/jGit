@@ -1,9 +1,9 @@
 package service;
 
-import entity.FileInfo;
 import entity.TreeItemVO;
 import org.eclipse.jgit.lib.ObjectId;
 import org.springframework.web.multipart.MultipartFile;
+
 import java.util.List;
 import java.util.Map;
 
@@ -103,8 +103,8 @@ public interface JGitService {
     void upload(MultipartFile file, String relativePath);
 
     /**
-     * 初始渲染目录结构
-     * @return 目录下每个文件的状态
+     * 初始建立文件目录结构
+     * @return 文件树的根节点
      */
     TreeItemVO initDirTreeStatus();
 }

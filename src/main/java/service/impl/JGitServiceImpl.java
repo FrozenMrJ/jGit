@@ -1,12 +1,12 @@
 package service.impl;
 
-import entity.FileInfo;
 import entity.TreeItemVO;
-import org.eclipse.jgit.api.*;
+import org.eclipse.jgit.api.AddCommand;
+import org.eclipse.jgit.api.CommitCommand;
+import org.eclipse.jgit.api.Git;
+import org.eclipse.jgit.api.PullResult;
 import org.eclipse.jgit.api.errors.GitAPIException;
-import org.eclipse.jgit.api.errors.JGitInternalException;
 import org.eclipse.jgit.diff.*;
-import org.eclipse.jgit.internal.storage.file.FileRepository;
 import org.eclipse.jgit.lib.ObjectId;
 import org.eclipse.jgit.lib.ObjectLoader;
 import org.eclipse.jgit.lib.ObjectReader;
@@ -21,12 +21,10 @@ import org.eclipse.jgit.treewalk.AbstractTreeIterator;
 import org.eclipse.jgit.treewalk.CanonicalTreeParser;
 import org.eclipse.jgit.treewalk.TreeWalk;
 import org.eclipse.jgit.treewalk.filter.PathFilterGroup;
-import org.eclipse.jgit.util.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.multipart.MultipartFile;
 import service.JGitService;
-import sun.reflect.generics.tree.Tree;
 import utils.PropertiesUtils;
 
 import java.io.*;
@@ -35,6 +33,11 @@ import java.util.*;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
+/**
+ * @ClassName JGitServiceImpl
+ * @Description
+ * @Author jinym
+ **/
 public class JGitServiceImpl implements JGitService {
 
     // 代码分支
@@ -170,7 +173,7 @@ public class JGitServiceImpl implements JGitService {
     }
 
     @Override
-    public List<Map<String, Object>> getFileVersion(String fileName,int maxCount){
+    public List<Map<String, Object>> getFileVersion(String fileName, int maxCount){
         init();
         try {
             Iterable<RevCommit> commits = git.log().addPath(fileName).call();
@@ -376,7 +379,7 @@ public class JGitServiceImpl implements JGitService {
     @Override
     public TreeItemVO initDirTreeStatus() {
         TreeItemVO root = new TreeItemVO();
-        getListFiles(localPath,root);
+        createFileTree(localPath,root);
         root = root.getChildren().get(0);
         return root;
     }
@@ -451,7 +454,7 @@ public class JGitServiceImpl implements JGitService {
      * @param obj   文件/目录
      * @param root  当前子树根节点
      */
-    private void getListFiles(Object obj,TreeItemVO root) {
+    private void createFileTree(Object obj, TreeItemVO root) {
         File directory;
         if (obj instanceof File) {
             directory = (File) obj;
@@ -478,7 +481,7 @@ public class JGitServiceImpl implements JGitService {
                 treeItemVO.setType("dir");
                 File[] fileArr = directory.listFiles();
                 for (File fileOne : fileArr) {
-                    getListFiles(fileOne, treeItemVO);
+                    createFileTree(fileOne, treeItemVO);
                     if (!files.contains(treeItemVO)) {
                         files.add(treeItemVO);
                     }
