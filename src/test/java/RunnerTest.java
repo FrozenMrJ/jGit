@@ -1,28 +1,51 @@
-import entity.TreeItemVO;
+import entity.FileInfo;
 import service.JGitService;
 import service.impl.JGitServiceImpl;
-import sun.plugin2.util.SystemUtil;
-import sun.reflect.generics.tree.Tree;
-import utils.PropertiesUtils;
+import utils.FileUtils;
 
 import java.io.*;
 import java.util.*;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipOutputStream;
 
 public class RunnerTest {
+    private static final String localPath = "D:\\MrJ's Documents\\jGit";
+
     public static void main(String[] args){
-        try {
-//            ArrayList<File> listFiles = getListFiles("D:/MrJ's Documents/jGit");
-//            for (File file : listFiles) {
-//                System.out.println(file.getAbsolutePath());
-//            }
-            String localPath = PropertiesUtils.getProperty("gitlab.localPath");
-            String absolutePath = "D:\\MrJ's Documents\\jGit\\微信.docx";
-            String relativePath = absolutePath.substring(absolutePath.indexOf(localPath)+1);
-            System.out.println(relativePath);
-        } catch (Exception e) {
-            e.printStackTrace();
+        RunnerTest runnerTest = new RunnerTest();
+        runnerTest.test();
+    }
+
+    private long loopNums = 0;
+    private ArrayList<ArrayList<String>> al = null;
+
+    public void test(){
+        al = new ArrayList<>();
+        File file = new File("D:\\MrJ's Documents\\test");
+        genFileTree(file,"root","0");
+        System.out.println("");
+    }
+
+    private void genFileTree(File filePath ,String parentNode,String node){
+        ArrayList<String> list = new ArrayList<String>();
+        if(filePath.isDirectory()){
+            list.add(parentNode);
+            list.add(node);
+            list.add(filePath.getName());
+            list.add("folder");
+            list.add(filePath.getAbsolutePath());
+            al.add(list);
+            loopNums++;
+            File[] file = filePath.listFiles();
+            for(int j=0;j<file.length;j++){
+                genFileTree(file[j],node,"d"+node+"w"+j);
+            }
+            loopNums--;
+        }else if(filePath.isFile()){
+            list.add(parentNode);
+            list.add(node);
+            list.add(filePath.getName());
+            list.add("file");
+            list.add(filePath.getAbsolutePath());
+            al.add(list);
         }
     }
 }

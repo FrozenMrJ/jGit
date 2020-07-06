@@ -1,5 +1,6 @@
 package service.impl;
 
+import entity.FileInfo;
 import entity.TreeItemVO;
 import org.eclipse.jgit.api.*;
 import org.eclipse.jgit.api.errors.GitAPIException;
@@ -25,6 +26,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.multipart.MultipartFile;
 import service.JGitService;
+import sun.reflect.generics.tree.Tree;
 import utils.PropertiesUtils;
 
 import java.io.*;
@@ -372,9 +374,11 @@ public class JGitServiceImpl implements JGitService {
     }
 
     @Override
-    public List<TreeItemVO> initDirTreeStatus() {
-        return getListFiles(localPath);
-
+    public TreeItemVO initDirTreeStatus() {
+        TreeItemVO root = new TreeItemVO();
+        getListFiles(localPath,root);
+        root = root.getChildren().get(0);
+        return root;
     }
 
     @Override
@@ -442,37 +446,45 @@ public class JGitServiceImpl implements JGitService {
         return null;
     }
 
-    List<TreeItemVO> list = new ArrayList<>();
-    private List<TreeItemVO> getListFiles(Object obj) {
+    /**
+     * 递归建立文件目录树
+     * @param obj   文件/目录
+     * @param root  当前子树根节点
+     */
+    private void getListFiles(Object obj,TreeItemVO root) {
         File directory;
         if (obj instanceof File) {
             directory = (File) obj;
         } else {
             directory = new File(obj.toString());
         }
-        List<TreeItemVO> files = new ArrayList<>();
+        List<TreeItemVO> files;
+        if (root.getChildren() == null) {
+            files = new ArrayList<>();
+        } else {
+            files = root.getChildren();
+        }
         if (!directory.getName().equals(".git")) {  // 过滤.git目录
-            TreeItemVO treeItemVO = new TreeItemVO();
             String absolutePath = directory.getAbsolutePath();
             String relativePath = absolutePath.replace(localPath + "\\", "");
+            TreeItemVO treeItemVO = new TreeItemVO();
             treeItemVO.setFileName(directory.getName());
-//            treeItemVO.setFilePath(relativePath);
+            treeItemVO.setFilePath(relativePath);
             if (directory.isFile()) {
                 treeItemVO.setType("file");
                 treeItemVO.setStatus(status(relativePath));
                 files.add(treeItemVO);
-//                return files;
             } else if (directory.isDirectory()) {
                 treeItemVO.setType("dir");
                 File[] fileArr = directory.listFiles();
                 for (File fileOne : fileArr) {
-                    treeItemVO.setChildren(getListFiles(fileOne));
-//                    files.addAll(getListFiles(fileOne));
-                    files.add(treeItemVO);
+                    getListFiles(fileOne, treeItemVO);
+                    if (!files.contains(treeItemVO)) {
+                        files.add(treeItemVO);
+                    }
                 }
             }
         }
-        return files;
+        root.setChildren(files);
     }
-
 }

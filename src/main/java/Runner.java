@@ -2,6 +2,7 @@ import entity.TreeItemVO;
 import org.eclipse.jgit.lib.ObjectId;
 import service.JGitService;
 import service.impl.JGitServiceImpl;
+import sun.reflect.generics.tree.Tree;
 
 import java.io.ByteArrayOutputStream;
 import java.io.FileOutputStream;
@@ -19,7 +20,7 @@ public class Runner {
 //        jGitService.gitClone();
 //        jGitService.pullBranchToLocal();
 //        String status = jGitService.status("微信.docx");
-        List<TreeItemVO> treeItemVOS = jGitService.initDirTreeStatus();
+        TreeItemVO treeItemVOS = jGitService.initDirTreeStatus();
         System.out.println(treeItemVOS);
 //        System.out.println(status);
 //        String s = jGitService.commitToGitRepository(paths);

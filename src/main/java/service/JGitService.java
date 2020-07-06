@@ -1,11 +1,9 @@
 package service;
 
+import entity.FileInfo;
 import entity.TreeItemVO;
 import org.eclipse.jgit.lib.ObjectId;
 import org.springframework.web.multipart.MultipartFile;
-import sun.reflect.generics.tree.Tree;
-
-import java.io.ByteArrayOutputStream;
 import java.util.List;
 import java.util.Map;
 
@@ -108,5 +106,5 @@ public interface JGitService {
      * 初始渲染目录结构
      * @return 目录下每个文件的状态
      */
-    List<TreeItemVO> initDirTreeStatus();
+    TreeItemVO initDirTreeStatus();
 }

@@ -21,6 +21,7 @@ public class TreeItemVO extends BaseVO {
     // 状态
     private String status;
 
+    // 孩子节点
     private List<TreeItemVO> children = new ArrayList<>();
 
 }
