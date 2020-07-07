@@ -25,6 +25,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.multipart.MultipartFile;
 import service.JGitService;
+import utils.FileUtils;
 import utils.PropertiesUtils;
 
 import java.io.*;
@@ -66,7 +67,7 @@ public class JGitServiceImpl implements JGitService {
     private SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 
     @Override
-    public void gitClone() {
+    public boolean gitClone() {
         try {
             Git.cloneRepository()
                     .setURI(url)
@@ -78,7 +79,9 @@ public class JGitServiceImpl implements JGitService {
         } catch (GitAPIException e) {
             log.error("git初始化失败：" + e.getMessage());
             e.printStackTrace();
+            return false;
         }
+        return true;
     }
 
     private void init() {
@@ -287,9 +290,9 @@ public class JGitServiceImpl implements JGitService {
     }
 
     @Override
-    public byte[] readHisFile(String []commitIds,String []relativePaths) {
+    @Deprecated
+    public byte[] dealHisFile(String []commitIds,String []relativePaths) {
         init();
-        // TODO zip压缩
         if (commitIds.length != relativePaths.length) {
             log.error("readHisFile()参数输入错误");
             return null;
@@ -352,10 +355,82 @@ public class JGitServiceImpl implements JGitService {
         return rtnBytes;
     }
 
-    public void upload(MultipartFile file, String relativePath) {
+    @Override
+    public Map<String,byte[]> readHisFile(String []commitIds, String []relativePaths) {
+        init();
+        // TODO zip压缩
+        if (commitIds.length != relativePaths.length) {
+            log.error("readHisFile()参数输入错误");
+            return null;
+        }
+        ByteArrayOutputStream out;
+        Map<String, byte[]> datas = new HashMap<>();
+        try {
+            //将文件的内容放进一个map里
+            for (int i = 0; i < commitIds.length; i++) {
+                String revision = commitIds[i];
+                String relativePath = relativePaths[i];
+                String fileName = relativePath.substring(relativePath.lastIndexOf("/") + 1);
+                RevWalk walk = new RevWalk(repository);
+                ObjectId objId = repository.resolve(revision);
+                RevCommit revCommit = walk.parseCommit(objId);
+                RevTree revTree = revCommit.getTree();
+
+                TreeWalk treeWalk = TreeWalk.forPath(repository, relativePath, revTree);
+                if (treeWalk == null) {
+                    String msg = "版本号：" + revision + "在路径" + relativePath + "下无该文件";
+                    log.error(msg);
+                    throw new Exception(msg);
+                }
+                ObjectId blobId = treeWalk.getObjectId(0);
+                ObjectLoader loader = repository.open(blobId);
+                out = new ByteArrayOutputStream();
+                loader.copyTo(out);
+                datas.put(fileName, out.toByteArray());
+                log.info("readHisFile()文件读取成功");
+            }
+        } catch (Exception e) {
+            log.error(e.getMessage());
+            return null;
+        }
+        return datas;
+    }
+
+    @Override
+    public boolean compressZipFile(Map<String, byte[]> dataMap, String relativePath) {
+        try {
+            //定义输出流
+            FileOutputStream fout = new FileOutputStream(localPath + "/" + relativePath);
+            //装饰器模式：用ZipOutputStream包装输出流，使其拥有写入zip文件的能力
+            ZipOutputStream zipOut = new ZipOutputStream(new BufferedOutputStream(fout));
+
+            //遍历
+            Set<String> keys = dataMap.keySet();
+            for (String key : keys) {
+                //下面就是循环把每个文件写进zip文件
+                InputStream bin = new BufferedInputStream(new ByteArrayInputStream(dataMap.get(key)));
+                byte[] b = new byte[1024];
+                zipOut.putNextEntry(new ZipEntry(key));
+                int len;
+                while ((len = bin.read(b)) != -1) {
+                    zipOut.write(b, 0, len);
+                }
+            }
+            zipOut.close();
+            log.info(relativePath + "打包成功");
+        } catch (Exception e) {
+            log.error("compressZipFile出错:" + e.getMessage());
+            return false;
+        }
+        return true;
+    }
+
+    public boolean upload(MultipartFile file, String relativePath) {
+        boolean flag = true;
         try {
             if (file.isEmpty()) {
-                throw new Exception("upload上传文件为空");
+                log.error("upload上传文件为空");
+                return false;
             }
             // 获取文件名
             String fileName = file.getOriginalFilename();
@@ -373,7 +448,14 @@ public class JGitServiceImpl implements JGitService {
             log.info("上传成功");
         } catch (Exception e) {
             log.error(e.getMessage());
+            flag = false;
         }
+        return flag;
+    }
+
+    @Override
+    public boolean deleteFile(String relativePath) {
+        return FileUtils.deleteFolder(localPath + "/" + relativePath);
     }
 
     @Override
@@ -381,18 +463,13 @@ public class JGitServiceImpl implements JGitService {
         TreeItemVO root = new TreeItemVO();
         createFileTree(localPath,root);
         root = root.getChildren().get(0);
+        log.info("初始化文件目录结构成功");
         return root;
     }
 
     @Override
-    public void createFolder(String filePath) {
-        File dir = new File(localPath + "/" + filePath);
-        if(!dir.exists()){
-            dir.mkdirs();
-            log.info("目录创建完毕。");
-        }else{
-            log.info("目录已存在！");
-        }
+    public boolean createFolder(String filePath) {
+         return FileUtils.createFolder(localPath + "/" + filePath);
     }
 
     private List<Map<String,Object>> getDifInfo(Iterable<RevCommit> commits) {
@@ -472,7 +549,7 @@ public class JGitServiceImpl implements JGitService {
             String relativePath = absolutePath.replace(localPath + "\\", "");
             TreeItemVO treeItemVO = new TreeItemVO();
             treeItemVO.setFileName(directory.getName());
-            treeItemVO.setFilePath(relativePath);
+            treeItemVO.setFilePath(absolutePath);
             if (directory.isFile()) {
                 treeItemVO.setType("file");
                 treeItemVO.setStatus(status(relativePath));

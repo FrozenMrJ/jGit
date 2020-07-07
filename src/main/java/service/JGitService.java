@@ -18,7 +18,7 @@ public interface JGitService {
     /**
      * git clone，建立与远程仓库的联系，仅需要执行一次
      */
-    void gitClone();
+    boolean gitClone();
 
     /**
      * pull拉取远程仓库文件
@@ -86,21 +86,42 @@ public interface JGitService {
      * @param relativePaths 相对git库的文件路径
      * @return
      */
-    byte[] readHisFile(String []commitIds, String []relativePaths);
+    byte[] dealHisFile(String []commitIds, String []relativePaths);
 
     /**
-     * 创建文件夹
      *
+     * @param commitIds  通过getFileVersion()方法返回值中key为commitId的值
+     * @param relativePaths 相对git库的文件路径
+     * @return <文件名，文件字节数据>
+     */
+    Map<String,byte[]> readHisFile(String []commitIds, String []relativePaths);
+
+    /**
+     * 将readHisFile()返回值中的文件进行zip压缩
+     * @param dataMap readHisFile()返回值
+     * @param relativePath zip包要保存的相对路径
+     * @return
+     */
+    boolean compressZipFile(Map<String, byte[]> dataMap, String relativePath);
+
+    /**
+     * 根据git相对路径创建文件夹
      * @param filePath 相对git库的文件路径，支持多级目录创建
      */
-    void createFolder(String filePath);
+    boolean createFolder(String filePath);
 
     /**
      * 文件上传
      * @param file
      * @param relativePath  文件上传相对路径
      */
-    void upload(MultipartFile file, String relativePath);
+    boolean upload(MultipartFile file, String relativePath);
+
+    /**
+     * 根据路径删除文件 or 目录及目录下的所有文件
+     * @param relativePath 文件路径 or 目录路径
+     */
+    boolean deleteFile(String relativePath);
 
     /**
      * 初始建立文件目录结构
